@@ -1,0 +1,55 @@
+version: '3.9'
+
+networks:
+  web:
+    external: true
+  internal:
+    external: false
+
+services:
+  reverse-proxy:
+    image: traefik
+    container_name: traefik
+    restart: always
+    command:
+      --api=true
+      --providers.docker=true
+      --providers.file.directory=/etc/traefik/
+      --providers.file.watch=true
+      --api.dashboard=true
+      --entrypoints.http.address=:80
+      --entrypoints.https.address=:443
+      --log.level=INFO
+      --certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}
+      --certificatesresolvers.myresolver.acme.storage=acme.json
+      --certificatesresolvers.myresolver.acme.storage=/acme/acme.json
+      --certificatesresolvers.myresolver.acme.dnschallenge=true
+      --certificatesresolvers.myresolver.acme.dnschallenge.provider=hetzner
+      --certificatesresolvers.myresolver.acme.dnschallenge.delaybeforecheck=300
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./acme/:/acme/
+      - ./fileprovider:/etc/traefik:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.routers.dashboard-http-router.entrypoints=http"
+      - "traefik.http.routers.dashboard-http-router.rule=Host(`${TRAEFIK_HOST}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+      - "traefik.http.middlewares.dashboard-auth.basicauth.users=admin:${ADMIN_PASS}"
+      - "traefik.http.routers.dashboard-https-router.tls.certresolver=myresolver"
+      - "traefik.http.middlewares.dashboard-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.dashboard-http-router.middlewares=dashboard-redirect"
+      - "traefik.http.routers.dashboard-https-router.middlewares=dashboard-auth"
+      - "traefik.http.routers.dashboard-https-router.service=api@internal"
+      - "traefik.http.routers.dashboard-https-router.entrypoints=https"
+      - "traefik.http.routers.dashboard-https-router.tls=true"
+      - "traefik.http.routers.dashboard-https-router.rule=Host(`${TRAEFIK_HOST}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+    environment:
+      HETZNER_API_KEY: ${HETZNER_API_KEY}
+      LEGO_DISABLE_CNAME_SUPPORT: true
+    networks:
+      - internal
+      - web
