@@ -19,6 +19,8 @@ services:
       --api.dashboard=true
       --entrypoints.http.address=:80
       --entrypoints.https.address=:443
+      --entryPoints.http.forwardedHeaders.insecure
+      --entryPoints.https.forwardedHeaders.insecure
       --log.level=INFO
       --certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}
       --certificatesresolvers.myresolver.acme.storage=acme.json
